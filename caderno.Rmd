@@ -1,9 +1,11 @@
 ---
 title: "Correlation Coefficient"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
-$\rho = \frac{1}{n}\sum\limits_{i=1}^{n}(\frac{x_i-\mu_x}{\sigma_x})*(\frac{y_i-\mu_y}{\sigma_y}) $ 
+$\rho = \frac{1}{n}\sum\limits_{i=1}^{n}(\frac{x_i-\mu_x}{\sigma_x})*(\frac{y_i-\mu_y}{\sigma_y})$ 
 
 ```{r}
 
@@ -97,17 +99,12 @@ sd <- galton_heights %>%
 
 ```{r}
 library(dslabs)
-mnist <- read_mnist()
-head(mnist)
-train <- mnist$train
-ncol(mnist$train$images)
+
 ```
 So there are 784 features to evaluate each letter
 
 ```{r}
-y <- mnist$train$labels
-y[5]+y[6]
-y[5]>y[6]
+
 ```
 
 
@@ -160,4 +157,108 @@ confM[1,1]/(confM[1,1]+confM[2,1])
 #Specificity
 confM[2,2]/(confM[1,2]+confM[2,2])
 #prevalence
-mean(dat$sex["Female"])
+mean("Female" == dat$sex)
+```
+
+
+
+##Comprehension Check: Practice with Machine Learning
+
+```{r}
+library(caret)
+data(iris)
+iris <- iris[-which(iris$Species=='setosa'),]
+iris$Species <- factor(iris$Species, levels = c("virginica", "versicolor"))
+y <- iris$Species
+
+```
+Create An even split train and test data sets:
+
+```{r}
+set.seed(2)
+test_index <- createDataPartition(y,times=1,p=0.5,list=FALSE)
+test <- iris[test_index,]
+train <- iris[-test_index,]
+```
+
+Finding the Best Single Cutoff Predictor:
+```{r}
+train %>%
+  group_by(Species)%>%
+  summarise(m_sepal_length = mean(Sepal.Length), m_se_width = mean(Sepal.Width),
+                                  m_pe_length = mean(Petal.Length), 
+                                  m_pe_width = mean(Petal.Width))
+```
+
+
+```{r}
+min(train$Petal.Length)
+max(train$Petal.Length)
+cutoff <- seq(3,6.9, by = 0.1)
+accuracy <- map_dbl(cutoff, function(x){
+  yhat <- ifelse(train$Petal.Length > x, "virginica", "versicolor")%>%
+    factor(levels = levels(test$Species))
+  F_meas(data = yhat, reference = factor(train$Species))
+})
+plot(cutoff,accuracy)
+cutoff[which.max(accuracy)]
+
+#Utilização da base de teste:
+y_hat <- ifelse(test$Petal.Length > 4.7, "virginica", "versicolor")%>%
+    factor(levels = levels(test$Species))
+mean(y_hat == test$Species)
+
+```
+
+
+```{r}
+min(train$Petal.Width)
+max(train$Petal.Width)
+cutoff1 <- seq(3,6.9, by = 0.1)
+cutoff2 <- seq(1,2.5, by = 0.1)
+accuracy2 <- map_dbl(cutoff2, function(x){
+  yhat <- ifelse(train$Petal.Width > x, "virginica", "versicolor")%>%
+    factor(levels = levels(test$Species))
+  F_meas(data = yhat, reference = factor(train$Species))
+})
+plot(cutoff2,accuracy2)
+cutoff2[which.max(accuracy2)]
+
+#Utilização da base de teste:
+y_hat <- ifelse(test$Petal.Length > 4.9 | test$Petal.Width > 1.7, "virginica", "versicolor")%>%
+    factor(levels = levels(test$Species))
+mean(y_hat == test$Species)
+
+```
+
+##Answer to last question because I've failed:
+
+```{r}
+library(caret)
+data(iris)
+iris <- iris[-which(iris$Species=='setosa'),]
+y <- iris$Species
+
+plot(iris,pch=21,bg=iris$Species)
+
+set.seed(2)
+test_index <- createDataPartition(y,times=1,p=0.5,list=FALSE)
+test <- iris[test_index,]
+train <- iris[-test_index,]
+
+petalLengthRange <- seq(range(train[,3])[1],range(train[,3])[2],by=0.1)
+petalWidthRange <- seq(range(train[,4])[1],range(train[,4])[2],by=0.1)
+cutoffs <- expand.grid(petalLengthRange,petalWidthRange)
+
+id <- sapply(seq(nrow(cutoffs)),function(i){
+	y_hat <- ifelse(train[,3]>cutoffs[i,1] | train[,4]>cutoffs[i,2],'virginica','versicolor')
+	mean(y_hat==train$Species)
+	}) %>% which.max
+
+optimalCutoff <- cutoffs[id,] %>% as.numeric
+y_hat <- ifelse(test[,3]>optimalCutoff[1] & test[,4]>optimalCutoff[2],'virginica','versicolor')
+mean(y_hat==test$Species)
+```
+
+
+;
